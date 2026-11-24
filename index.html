@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3eee2">
+  <meta name="description" content="Our Dairy Farm — daily milk records, billing and cattle register.">
+  <link rel="icon" href="data:,">
+  <title>Our Dairy Farm — Daily farm journal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=backup-20261124a">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="js/supabase-config.js?v=backup-20261124a" defer></script>
+  <script src="js/database.js?v=backup-20261124a" defer></script>
+  <script src="js/sample-data.js?v=backup-20261124a" defer></script>
+  <script src="js/milk-calculations.js?v=backup-20261124a" defer></script>
+  <script src="js/milk-repository.js?v=backup-20261124a" defer></script>
+  <script src="js/backup-restore.js?v=backup-20261124a" defer></script>
+  <script src="js/app.js?v=backup-20261124a" defer></script>
+</head>
+<body>
+  <div class="demo-ribbon"><span class="demo-dot"></span> DEVELOPMENT PREVIEW <span>·</span> Milk, billing and cattle data use local Supabase</div>
+  <header class="site-header">
+    <a class="brand" href="#overview" aria-label="Our Dairy Farm home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M20 3C14 12 8 18 8 25a12 12 0 0 0 24 0c0-7-6-13-12-22Z"/><path class="brand-cut" d="M13 26c1 5 4 7 8 7"/></svg></span>
+      <span><strong>OUR DAIRY FARM</strong><small>DAILY FARM JOURNAL</small></span>
+    </a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="#overview" class="nav-link active" data-nav="overview">Overview</a>
+      <a href="#records" class="nav-link" data-nav="records">Milk records</a>
+      <a href="#reports" class="nav-link" data-nav="reports">Reports</a>
+      <a href="#cattle" class="nav-link" data-nav="cattle">Cattle</a>
+      <a href="#settings" class="nav-link" data-nav="settings">Settings</a>
+    </nav>
+    <button class="profile-button" id="demo-access" aria-label="Demo access settings"><span class="profile-initials">DF</span><span class="profile-label">Family access</span><span class="chevron">⌄</span></button>
+  </header>
+
+  <main>
+    <section id="overview" class="section overview-section" aria-labelledby="overview-title">
+      <div class="hero-card">
+        <div class="hero-art" aria-hidden="true">
+          <svg class="farm-scene" viewBox="0 0 700 390" preserveAspectRatio="xMidYMid slice">
+            <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#d7e9e3"/><stop offset="1" stop-color="#f1d8ab"/></linearGradient><linearGradient id="field" x2="0" y2="1"><stop stop-color="#879b68"/><stop offset="1" stop-color="#435c42"/></linearGradient></defs>
+            <rect width="700" height="390" fill="url(#sky)"/><circle cx="548" cy="85" r="40" fill="#e7ac5a" opacity=".9"/>
+            <path d="M0 190Q120 112 270 184T560 166T780 190V390H0Z" fill="#9ca879"/><path d="M0 225Q130 155 290 222T570 205T780 224V390H0Z" fill="#607a58"/><path d="M0 278Q150 227 330 282T700 260V390H0Z" fill="url(#field)"/>
+            <path d="M405 164h140v108H405z" fill="#b56d4a"/><path d="m390 168 84-69 83 69z" fill="#754a3a"/><path d="M456 205h32v67h-32z" fill="#4f493d"/><path d="M423 189h22v24h-22zm88 0h22v24h-22z" fill="#f0d298"/>
+            <g fill="#405a43"><path d="M95 214c-1-54 1-91 4-124 5 30 9 54 9 88 10-25 24-43 38-56-9 24-18 50-28 77 20-16 39-24 59-28-19 14-37 29-56 43l-3 35H95z"/><path d="M200 231c0-52 3-82 5-111 6 25 10 49 10 75 11-19 22-32 36-43-8 20-18 40-27 58 18-12 34-18 51-20-17 11-34 24-51 34l-4 30h-19z"/></g>
+
+            <g fill="#d8c18c" opacity=".8"><path d="M300 289h2v27h-2zm8-7h2v35h-2zm10 9h2v24h-2zm12-12h2v36h-2zm10 5h2v31h-2zm12-8h2v37h-2z"/></g>
+          </svg>
+          <img class="hero-cow" src="assets/images/cow.png" alt="" aria-hidden="true">
+          <div class="hero-art-label"><span class="sun-icon">◒</span> MAHARASHTRA · INDIA</div>
+        </div>
+        <div class="hero-copy"><p class="eyebrow"><span id="hero-date-label">MONDAY, 23 NOVEMBER 2026</span> <span class="eyebrow-line"></span></p><h1 id="overview-title">A good day<br>starts at the <em>dairy.</em></h1><p class="hero-description">Your farm, in one place. Keep today's collection close and every good day's work on record.</p><button class="button button-dark" data-action="add-morning"><span class="button-plus">＋</span> Add morning milk</button></div>
+        <div class="hero-stamp"><span>FRESH</span><b>✳</b><span>EVERY DAY</span></div>
+      </div>
+
+      <div class="section-heading-row"><div><p class="eyebrow">THE DAY, SO FAR</p><h2>Today's collection</h2></div><div class="today-date"><span class="calendar-icon">▦</span><span id="today-date-label">Monday<br><b>23 November</b></span></div></div>
+      <div class="today-grid">
+        <article class="production-card"><div class="production-top"><div><p class="eyebrow light-eyebrow">TOTAL MILK</p><div class="production-number" id="today-total">24.500 <span>L</span></div></div><span class="status-pill complete" id="day-status"><i></i> Complete day</span></div><div class="production-rule"></div><div class="session-row"><span class="session-icon morning-icon">☼</span><div class="session-name"><b>Morning</b><small id="morning-state">Collected · 7:12 am</small></div><strong id="morning-total">14.500 <i>L</i></strong><button class="text-action" data-action="add-morning" aria-label="Add morning milk">＋</button></div><div class="session-row"><span class="session-icon evening-icon">◔</span><div class="session-name"><b>Evening</b><small id="evening-state">Collected · 5:46 pm</small></div><strong id="evening-total">10.000 <i>L</i></strong><button class="text-action" data-action="add-evening" aria-label="Add evening milk">＋</button></div></article>
+        <article class="quick-card compare-card"><div class="card-title-line"><div><p class="eyebrow">A LITTLE PERSPECTIVE</p><h3>How are we doing?</h3></div><span class="compare-spark">↗</span></div><label class="compact-label" for="compare-date">Compare a day</label><input id="compare-date" class="date-input" type="date" value="2026-11-23"><div id="comparison-compact" class="comparison-compact"></div><a class="inline-link" href="#records">See full comparison <span>↗</span></a></article>
+      </div>
+      <div class="overview-lower-grid">
+        <article class="cycle-card"><div class="cycle-heading"><div><p class="eyebrow">MILK COLLECTION CENTRE</p><h3>This billing cycle</h3></div><span class="cycle-badge">CYCLE 03</span></div><div class="cycle-dates"><span>14 NOV</span><div class="cycle-progress"><div id="cycle-progress-fill"></div><i></i></div><span>23 NOV</span></div><div class="cycle-stats"><div><strong>10 <small>days</small></strong><span>Cycle length</span></div><div><strong id="cycle-litres">191.2 <small>L</small></strong><span>Milk supplied</span></div><div><strong id="cycle-amount">₹8,577</strong><span>Recorded amount</span></div></div><div class="cycle-estimate hidden" id="cycle-estimate"><span>Estimate for entries without an amount</span><b id="cycle-estimated-amount"></b></div><div class="cycle-foot"><span class="cycle-day"><b>Day 10</b> of 10</span><span class="payment-chip"><i></i> Payment pending</span></div><a class="cycle-link" href="#records" data-filter="current">View cycle details <span>→</span></a></article>
+        <article class="cattle-glance"><div class="cattle-glance-top"><div><p class="eyebrow">OUT IN THE SHED</p><h3>Your cattle</h3></div><div class="cow-mark" aria-hidden="true"><img class="cow-mark-image" src="assets/images/cow.png" alt="" loading="lazy"></div></div><div class="cattle-count"><strong id="active-count">0</strong><span>active and<br>contributing</span><b>of <span id="total-cattle">0</span> cattle</b></div><div class="mini-herd" id="mini-herd"></div><a class="inline-link" href="#cattle">Visit cattle register <span>↗</span></a></article>
+      </div>
+    </section>
+
+    <section id="records" class="section records-section" aria-labelledby="records-title">
+      <div class="section-heading-row records-heading"><div><p class="eyebrow">FROM THE MILK BOOK</p><h2 id="records-title">Milk records</h2><p class="section-deck">Every morning and evening, kept together by date.</p><p class="connection-status" id="milk-data-status" role="status" aria-live="polite">Connecting to the local milk book…</p></div><button class="button button-terracotta" data-action="add-morning"><span class="button-plus">＋</span> New entry</button></div>
+      <article class="comparison-panel"><div class="comparison-header"><div><p class="eyebrow">DAILY PRODUCTION</p><h3>Compare a day</h3><p>See how one day sits beside the same day in earlier periods.</p></div><div class="comparison-date-wrap"><label class="compact-label" for="compare-date-large">Selected date</label><input id="compare-date-large" class="date-input" type="date" value="2026-11-23"></div></div><div class="table-wrap comparison-table-wrap"><table class="comparison-table"><thead><tr><th>PERIOD</th><th>DATE</th><th>MILK SUPPLIED</th><th>CHANGE VS SELECTED DAY</th></tr></thead><tbody id="comparison-table-body"></tbody></table></div><p class="table-note"><span class="note-mark">i</span> A day with one recorded session is marked incomplete. Missing records are never counted as zero.</p></article>
+      <div class="records-toolbar"><div><p class="eyebrow">HISTORY & BILLING</p><h3>Collection book</h3></div><div class="filters" role="group" aria-label="Filter milk records"><button class="filter-chip active" data-filter="all">All records</button><button class="filter-chip" data-filter="current">This cycle</button><button class="filter-chip" data-filter="previous">Previous cycle</button><button class="filter-chip" data-filter="custom">Date range</button></div></div>
+      <div class="range-controls hidden" id="range-controls"><label>From <input type="date" id="range-start" value="2026-11-01"></label><label>To <input type="date" id="range-end" value="2026-11-23"></label><button class="button button-outline" id="apply-range">Apply dates</button></div>
+      <div class="record-summary" id="record-summary"></div>
+      <div class="table-wrap records-table-wrap"><table class="records-table"><thead><tr><th>DATE</th><th>MORNING</th><th>EVENING</th><th>TOTAL</th><th>RECORDED AMOUNT</th><th>STATUS</th><th></th></tr></thead><tbody id="records-table-body"></tbody></table></div>
+      <article class="billing-history"><div class="billing-history-heading"><div><p class="eyebrow">TEN-DAY CYCLES</p><h3>Billing & payments</h3><p class="section-deck">Collection value and payments received, kept separate.</p><p class="connection-status" id="billing-data-status" role="status" aria-live="polite">Loading billing cycles…</p></div><div class="billing-actions"><button class="button button-outline" id="reset-cycle">Reset cycle</button><button class="button button-outline" id="add-payment">＋ Record payment</button></div></div><div class="billing-cycles" id="billing-cycles"></div></article>
+    </section>
+
+    <section id="reports" class="section reports-section" aria-labelledby="reports-title">
+      <div class="reports-heading">
+        <div><p class="eyebrow">FARM RECORDS, CLEARLY SET OUT</p><h2 id="reports-title">Reports</h2><p class="section-deck">Choose a report, check the details, then print or save it as a PDF.</p></div>
+      </div>
+      <div class="report-type-picker" role="group" aria-label="Report type">
+        <button type="button" class="filter-chip active" data-report-type="daily" aria-pressed="true">Daily milk</button>
+        <button type="button" class="filter-chip" data-report-type="cycle" aria-pressed="false">10-day billing</button>
+        <button type="button" class="filter-chip" data-report-type="monthly" aria-pressed="false">Monthly milk</button>
+        <button type="button" class="filter-chip" data-report-type="cattle" aria-pressed="false">Cattle register</button>
+      </div>
+      <div class="report-controls">
+        <label data-report-control="daily">Report date<input class="date-input" id="report-date" type="date"></label>
+        <label data-report-control="cycle" class="hidden">Billing cycle<select class="date-input" id="report-cycle"></select></label>
+        <label data-report-control="monthly" class="hidden">Month<input class="date-input" id="report-month" type="month"></label>
+        <label data-report-control="cattle" class="hidden">Cattle status<select class="date-input" id="report-cattle-filter"><option value="all">All cattle</option><option value="ACTIVE">Active only</option><option value="INACTIVE">Inactive only</option></select></label>
+      </div>
+      <p id="reports-status" class="connection-status" role="status" aria-live="polite">Sign in to load reports from the farm database.</p>
+      <div id="report-preview" class="report-preview" aria-live="polite"></div>
+    </section>
+
+    <section id="cattle" class="section cattle-section" aria-labelledby="cattle-title">
+      <div class="cattle-intro"><div><p class="eyebrow">A SMALL HERD, WELL KEPT</p><h2 id="cattle-title">The cattle register</h2><p class="section-deck">A simple list of who's active and who's taking a rest.</p><p class="connection-status" id="cattle-data-status" role="status" aria-live="polite">Loading cattle records…</p></div><div class="cattle-illustration" aria-hidden="true"><svg class="shed-scene" viewBox="0 0 350 170"><path d="M0 140q80-55 160 0t190-6v36H0z" fill="#768a65"/><path d="M17 138v-49l61-42 61 42v49H17z" fill="#bd7955"/><path d="m7 91 71-53 72 53" fill="none" stroke="#805442" stroke-width="11"/><path d="M65 101h29v37H65z" fill="#574a3d"/><path d="M284 137q26-56 48-4" fill="none" stroke="#c8a36f" stroke-width="3"/></svg><img class="cattle-photo" src="assets/images/cow.png" alt="" loading="lazy"></div></div>
+      <div class="herd-summary"><div><span class="herd-summary-icon">◉</span><strong id="herd-total-summary">0</strong><span>total cattle</span></div><div><span class="herd-summary-icon active-mark">●</span><strong id="herd-active-summary">0</strong><span>active</span></div><div><span class="herd-summary-icon inactive-mark">◌</span><strong id="herd-inactive-summary">0</strong><span>inactive</span></div><button class="button button-dark" id="add-cattle"><span class="button-plus">＋</span> Add cattle</button></div>
+      <div class="herd-toolbar"><div><h3>Everyone in the herd</h3><p>Tap a name to see details or make a change.</p></div><div class="herd-filters"><button class="filter-chip active" data-cattle-filter="all">All</button><button class="filter-chip" data-cattle-filter="ACTIVE">Active</button><button class="filter-chip" data-cattle-filter="INACTIVE">Inactive</button></div></div>
+      <div class="herd-grid" id="herd-grid"></div>
+      <div class="cattle-note"><span>✳</span> Milk collection records represent the whole farm. They aren't assigned to individual animals.</div>
+    </section>
+
+    <section id="settings" class="section settings-section" aria-labelledby="settings-title">
+      <div class="section-heading-row settings-heading"><div><p class="eyebrow">KEEP A COPY CLOSE</p><h2 id="settings-title">Farm settings</h2><p class="section-deck">Create a file you can keep or transfer to another device.</p></div></div>
+      <div class="backup-grid">
+        <article class="backup-card"><span class="backup-mark" aria-hidden="true">↓</span><p class="eyebrow">SAVE A COPY</p><h3>Create Backup</h3><p>Download farm settings, all milk records, billing cycles, payments and cattle as a versioned JSON file. Nothing is uploaded elsewhere.</p><button type="button" class="button button-dark" id="create-backup">Create Backup</button><p class="connection-status" id="backup-status" role="status" aria-live="polite">Sign in to the farm database to create a backup.</p></article>
+        <article class="backup-card"><span class="backup-mark restore-mark" aria-hidden="true">↑</span><p class="eyebrow">ADD FROM A FILE</p><h3>Restore from Backup</h3><p>Select a backup from this device. We check it first and show what can be added to the currently connected farm.</p><label class="field-label" for="restore-file">Backup JSON file</label><input id="restore-file" class="form-control file-control" type="file" accept="application/json,.json"><p class="connection-status" id="restore-status" role="status" aria-live="polite">Existing records are never deleted or overwritten.</p><div id="restore-preview" class="restore-preview" hidden></div><button type="button" class="button button-terracotta" id="restore-confirm" disabled hidden>Import safe records</button></article>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="footer-brand"><span class="footer-mark">✳</span><span><b>OUR DAIRY FARM</b><small>MAHARASHTRA · INDIA</small></span></div><p>A little more care in every record.</p><span class="footer-year">DEVELOPMENT PREVIEW · 2026</span></footer>
+
+  <dialog id="entry-dialog" class="app-dialog"><form id="milk-form" method="dialog"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><p class="eyebrow" id="milk-form-kicker">ADD TO THE MILK BOOK</p><h2 id="milk-form-title">Morning milk</h2><p class="dialog-description">Record the collection centre reading for this session.</p><input type="hidden" id="milk-record-id"><input type="hidden" id="milk-session"><label class="field-label" for="milk-date">Date *</label><input class="form-control" id="milk-date" type="date" required max="2026-11-23"><label class="field-label" for="milk-litres">Milk supplied <span>(litres) *</span></label><input class="form-control" id="milk-litres" type="number" min="0.001" step="0.001" placeholder="e.g. 14.500" required><div class="form-pair"><div><label class="field-label" for="milk-fat">Fat <small>% · optional</small></label><input class="form-control" id="milk-fat" type="number" min="0" step="any" placeholder="4.2"></div><div><label class="field-label" for="milk-snf">SNF <small>% · optional</small></label><input class="form-control" id="milk-snf" type="number" min="0" step="any" placeholder="8.5"></div></div><div class="form-pair"><div><label class="field-label" for="milk-rate">Rate <small>₹/L · optional</small></label><input class="form-control" id="milk-rate" type="number" min="0" step="0.01" placeholder="45.00"></div><div><label class="field-label" for="milk-amount">Amount <small>₹ · optional</small></label><input class="form-control" id="milk-amount" type="number" min="0" step="0.01" placeholder="652.50"></div></div><label class="field-label" for="milk-notes">Notes <small>optional</small></label><textarea class="form-control" id="milk-notes" rows="2" placeholder="Add a note about this entry"></textarea><p class="form-error" id="milk-error" aria-live="polite"></p><div class="dialog-actions"><button class="button button-outline" type="button" data-close>Cancel</button><button class="button button-terracotta" type="submit" id="milk-submit">Save entry</button></div><p class="local-save-note">Saved to the local farm database.</p></form></dialog>
+
+  <dialog id="cattle-dialog" class="app-dialog"><form id="cattle-form" method="dialog"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><p class="eyebrow">THE HERD</p><h2 id="cattle-form-title">Add cattle</h2><input type="hidden" id="cattle-id"><label class="field-label" for="cattle-name">Animal name or ID *</label><input class="form-control" id="cattle-name" required maxlength="60" placeholder="e.g. HF 16 or Saraswati"><label class="field-label" for="cattle-status">Current status *</label><select class="form-control" id="cattle-status" required><option value="ACTIVE">Active · contributing</option><option value="INACTIVE">Inactive · resting</option></select><label class="field-label" for="cattle-dob">Date of birth <small>optional</small></label><input class="form-control" id="cattle-dob" type="date" max="2026-11-23"><label class="field-label" for="cattle-notes">Notes <small>optional</small></label><textarea class="form-control" id="cattle-notes" rows="2" placeholder="A short note"></textarea><p class="form-error" id="cattle-error" aria-live="polite"></p><div class="dialog-actions"><button class="button button-outline" type="button" data-close>Cancel</button><button class="button button-terracotta" type="submit" id="cattle-submit">Save cattle</button></div></form></dialog>
+
+  <dialog id="payment-dialog" class="app-dialog"><form id="payment-form" method="dialog"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><p class="eyebrow">MONEY RECEIVED</p><h2>Record a payment</h2><p class="dialog-description">Keep collection value and the amount received as separate records.</p><label class="field-label" for="payment-cycle">Billing cycle *</label><select class="form-control" id="payment-cycle" required></select><label class="field-label" for="payment-amount">Amount received <small>₹ *</small></label><input class="form-control" id="payment-amount" type="number" min="0.01" step="0.01" required placeholder="e.g. 8,500.00"><label class="field-label" for="payment-date">Payment date *</label><input class="form-control" id="payment-date" type="date" required><label class="field-label" for="payment-notes">Notes <small>optional</small></label><textarea class="form-control" id="payment-notes" rows="2" placeholder="e.g. First instalment"></textarea><p class="form-error" id="payment-error" aria-live="polite"></p><div class="dialog-actions"><button class="button button-outline" type="button" data-close>Cancel</button><button class="button button-terracotta" type="submit" id="payment-submit">Save payment</button></div></form></dialog>
+
+  <dialog id="access-dialog" class="app-dialog access-dialog"><form id="access-form" method="dialog"><button class="dialog-close" type="button" data-close aria-label="Close">×</button><div class="access-emblem">✳</div><p class="eyebrow">FARM ACCESS</p><h2>Sign in</h2><p class="dialog-description" id="access-description">Milk records use the isolated local database during this phase.</p><div class="connection-test"><button class="button button-outline" id="test-supabase-connection" type="button">Test Supabase connection</button><p class="connection-status" id="supabase-connection-status" role="status" aria-live="polite">Connection not tested</p></div><div id="demo-pin-controls"><label class="field-label" for="demo-pin"><span id="demo-pin-label">Demo PIN</span> <small id="demo-pin-help">enter 246810</small></label><input id="demo-pin" class="form-control" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="6 digits"></div><p class="connection-status" id="local-auth-state" role="status" aria-live="polite"></p><button class="button button-outline" id="local-signout" type="button" hidden>Sign out</button><p class="form-error" id="access-error" aria-live="polite"></p><div class="dialog-actions"><button class="button button-outline" type="button" data-close>Close</button><button class="button button-dark" id="access-submit" type="submit">Continue</button></div></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

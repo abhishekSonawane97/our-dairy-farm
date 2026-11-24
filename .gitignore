@@ -1,0 +1,44 @@
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+.dev.vars
+.dev.vars.*
+.secrets/
+secrets/
+local-auth.json
+*.local.json
+*service-role*.json
+*service_role*.json
+*secret-key*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Supabase local state and generated backups
+supabase/.temp/
+supabase/.branches/
+supabase/.cache/
+*.backup
+*.dump
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+our-dairy-farm-backup*.json
+
+# Generated build and tool output
+dist/
+build/
+coverage/
+.wrangler/
+node_modules/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+Thumbs.db
+.tmp/
+tmp/
