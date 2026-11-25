@@ -149,3 +149,5 @@ input,select,textarea{font-size:16px}
 .restore-conflicts{font-size:15px;line-height:1.4;color:#89543d;margin:10px 0 0;padding-left:20px;max-height:180px;overflow:auto}
 .backup-card .button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:680px){.settings-section{margin-top:62px;padding-top:26px}.backup-grid{grid-template-columns:1fr;gap:12px}.backup-card{padding:19px 16px}.backup-card h3{font-size:24px}.restore-counts th,.restore-counts td{font-size:15px;padding:7px 2px}}
+.language-setting{display:flex;align-items:center;gap:14px;margin:0 0 24px;padding:16px 18px;background:var(--paper);border:1px solid var(--line);border-radius:8px}.language-setting label{font-weight:700}.language-setting select{max-width:220px;margin:0}
+html[lang="mr-IN"]{--sans:"Noto Sans Devanagari","Nirmala UI","Mangal","DM Sans",sans-serif;--serif:"Noto Serif Devanagari","Nirmala UI","Mangal",Georgia,serif}

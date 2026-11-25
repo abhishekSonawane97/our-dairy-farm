@@ -20,6 +20,7 @@
   <script src="js/milk-repository.js?v=backup-20261124a" defer></script>
   <script src="js/backup-restore.js?v=backup-20261124a" defer></script>
   <script src="js/app.js?v=phase-3-1" defer></script>
+  <script src="js/i18n.js?v=marathi-2" defer></script>
 </head>
 <body>
   <div class="demo-ribbon" id="environment-ribbon"><span class="demo-dot"></span> FARM JOURNAL</div>
@@ -108,6 +109,7 @@
     </section>
 
     <section id="settings" class="section settings-section" aria-labelledby="settings-title">
+      <div class="language-setting"><label for="language-select">Language / भाषा</label><select id="language-select" class="form-control"><option value="en">English</option><option value="mr">मराठी</option></select></div>
       <div class="section-heading-row settings-heading"><div><p class="eyebrow">KEEP A COPY CLOSE</p><h2 id="settings-title">Farm settings</h2><p class="section-deck">Create a file you can keep or transfer to another device.</p></div></div>
       <div class="backup-grid">
         <article class="backup-card"><span class="backup-mark" aria-hidden="true">↓</span><p class="eyebrow">SAVE A COPY</p><h3>Create Backup</h3><p>Download farm settings, all milk records, billing cycles, payments and cattle as a versioned JSON file. Nothing is uploaded elsewhere.</p><button type="button" class="button button-dark" id="create-backup">Create Backup</button><p class="connection-status" id="backup-status" role="status" aria-live="polite">Sign in to the farm database to create a backup.</p></article>

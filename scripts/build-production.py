@@ -30,6 +30,7 @@ ALLOWED_OUTPUT_FILES = {
     "js/milk-repository.js",
     "js/backup-restore.js",
     "js/app.js",
+    "js/i18n.js",
     "assets/images/cow.png",
     "_headers",
 }
