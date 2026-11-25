@@ -56,6 +56,9 @@
     d.cattle.forEach((r,i)=>{
       checkId(r,'cattle',i);required(r,['name','status','date_of_birth','notes','updated_at'],'cattle',i);
       if(typeof r.name!=='string'||!r.name.trim()||r.name.trim().length>120||!['ACTIVE','INACTIVE'].includes(r.status)||(r.date_of_birth!==null&&!validDate(r.date_of_birth))||(r.notes!==null&&(typeof r.notes!=='string'||r.notes.length>2000)))fail(`cattle[${i}] has invalid values.`);
+      const animalId=own(r,'animal_id')?r.animal_id:null,calvingNumber=own(r,'calving_number')?r.calving_number:null;
+      if(animalId!==null&&(typeof animalId!=='string'||!animalId.trim()||animalId.trim().length>60))fail(`cattle[${i}] has an invalid animal_id.`);
+      if(calvingNumber!==null&&(!Number.isSafeInteger(calvingNumber)||calvingNumber<0))fail(`cattle[${i}] has an invalid calving_number.`);
       const key=`${r.name.trim().toLocaleLowerCase()}:${r.date_of_birth||''}`;if(cattleKeys.has(key))fail('Backup contains duplicate cattle with the same name and date of birth.');cattleKeys.add(key);
     });
     d.payments.forEach((r,i)=>{

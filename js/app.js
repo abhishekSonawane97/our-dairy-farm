@@ -230,7 +230,7 @@
     el('herd-total-summary').textContent=total;el('herd-active-summary').textContent=active;el('herd-inactive-summary').textContent=total-active;
     el('mini-herd').innerHTML=data.cattle.map(c=>`<i class="mini-cow ${c.status==='INACTIVE'?'inactive':''}" title="${esc(c.name)} · ${c.status.toLowerCase()}"></i>`).join('');
     const animals=data.cattle.filter(c=>cattleFilter==='all'||c.status===cattleFilter).sort((a,b)=>a.name.localeCompare(b.name));
-    el('herd-grid').innerHTML=animals.map(c=>`<article class="animal-card" tabindex="0" role="button" data-animal-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}"><span class="animal-avatar ${c.status==='INACTIVE'?'inactive':''}"><img src="assets/images/cow.png" alt="" loading="lazy"></span><span class="animal-details"><strong>${esc(c.name)}</strong><small>${c.dob?`Born ${esc(dateLabel(c.dob,{day:'numeric',month:'short',year:'numeric'}))}`:'No birth date added'}</small></span><span class="animal-status ${c.status==='INACTIVE'?'inactive':''}">${c.status==='ACTIVE'?'Active':'Inactive'}</span><span class="animal-arrow">›</span></article>`).join('')||'<p class="no-record">No cattle in this group.</p>';
+    el('herd-grid').innerHTML=animals.map(c=>`<article class="animal-card" tabindex="0" role="button" data-animal-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}"><span class="animal-avatar ${c.status==='INACTIVE'?'inactive':''}"><img src="assets/images/cow.png" alt="" loading="lazy"></span><span class="animal-details"><strong>${esc(c.name)}</strong><small>${[c.animalId?`ID ${c.animalId}`:'',c.calvingNumber==null?'':`Calving ${c.calvingNumber}`,c.dob?`Born ${dateLabel(c.dob,{day:'numeric',month:'short',year:'numeric'})}`:''].filter(Boolean).map(esc).join(' · ')||'No animal details added'}</small></span><span class="animal-status ${c.status==='INACTIVE'?'inactive':''}">${c.status==='ACTIVE'?'Active':'Inactive'}</span><span class="animal-arrow">›</span></article>`).join('')||'<p class="no-record">No cattle in this group.</p>';
   }
   const reportLitres=value=>value==null?'—':`${Number(value).toFixed(3)} L`;
   const reportOptional=(value,suffix='')=>value==null?'—':`${Number(value).toFixed(2)}${suffix}`;
@@ -278,7 +278,7 @@
     const filter=el('report-cattle-filter').value,animals=data.cattle.slice().sort((a,b)=>a.name.localeCompare(b.name));
     const active=animals.filter(animal=>animal.status==='ACTIVE').length,inactive=animals.length-active;
     const filtered=animals.filter(animal=>filter==='all'||animal.status===filter);
-    const body=`${reportSummary([['Total animals',String(animals.length)],['Active',String(active)],['Inactive',String(inactive)],['Shown in this report',String(filtered.length)]])}${filtered.length?'':`<p class="report-empty">No cattle match this filter.</p>`}<div class="table-wrap report-table-wrap"><table class="report-table"><thead><tr><th>Animal</th><th>Status</th><th>Date of birth</th><th>Notes</th></tr></thead><tbody>${filtered.map(animal=>`<tr><th>${esc(animal.name)}</th><td>${animal.status==='ACTIVE'?'Active':'Inactive'}</td><td>${animal.dob?esc(reportDateLabel(animal.dob)):'—'}</td><td>${esc(animal.notes||'—')}</td></tr>`).join('')}</tbody></table></div><p class="report-note">Herd totals show all cattle; the table follows the selected status filter.</p>`;
+    const body=`${reportSummary([['Total animals',String(animals.length)],['Active',String(active)],['Inactive',String(inactive)],['Shown in this report',String(filtered.length)]])}${filtered.length?'':`<p class="report-empty">No cattle match this filter.</p>`}<div class="table-wrap report-table-wrap"><table class="report-table"><thead><tr><th>Animal Name</th><th>Animal ID</th><th>Calving Number</th><th>Status</th><th>Date of Birth</th><th>Notes</th></tr></thead><tbody>${filtered.map(animal=>`<tr><th>${esc(animal.name)}</th><td>${esc(animal.animalId||'—')}</td><td>${animal.calvingNumber==null?'—':animal.calvingNumber}</td><td>${animal.status==='ACTIVE'?'Active':'Inactive'}</td><td>${animal.dob?esc(reportDateLabel(animal.dob)):'—'}</td><td>${esc(animal.notes||'—')}</td></tr>`).join('')}</tbody></table></div><p class="report-note">Herd totals show all cattle; the table follows the selected status filter.</p>`;
     return reportDocument('Cattle Register Report',filter==='all'?'All cattle':`${filter==='ACTIVE'?'Active':'Inactive'} cattle`,body);
   }
   function renderReports(){
@@ -401,17 +401,20 @@
   el('apply-range').addEventListener('click',()=>{if(el('range-start').value>el('range-end').value){toast('The start date must be before the end date.');return;}renderRecords();});
   function openCattle(id=''){
     if(!authSession){el('access-dialog').showModal();el('access-error').textContent='Sign in to the local development account before managing cattle.';return;}
-    const c=data.cattle.find(item=>item.id===id);el('cattle-id').value=c?.id||'';el('cattle-name').value=c?.name||'';el('cattle-status').value=c?.status||'ACTIVE';el('cattle-dob').value=c?.dob||'';el('cattle-notes').value=c?.notes||'';el('cattle-form-title').textContent=c?'Update cattle':'Add cattle';el('cattle-error').textContent='';el('cattle-dialog').showModal();
+    const c=data.cattle.find(item=>item.id===id);el('cattle-id').value=c?.id||'';el('cattle-name').value=c?.name||'';el('cattle-animal-id').value=c?.animalId||'';el('cattle-calving-number').value=c?.calvingNumber??'';el('cattle-status').value=c?.status||'ACTIVE';el('cattle-dob').value=c?.dob||'';el('cattle-notes').value=c?.notes||'';el('cattle-form-title').textContent=c?'Update cattle':'Add cattle';el('cattle-error').textContent='';el('cattle-dialog').showModal();
   }
   el('cattle-form').addEventListener('submit',async e=>{
     e.preventDefault();
-    const name=el('cattle-name').value.trim(),status=el('cattle-status').value,dob=el('cattle-dob').value||null;
-    if(!name){el('cattle-error').textContent='Enter an animal name or ID.';return;}
+    const name=el('cattle-name').value.trim(),animalId=el('cattle-animal-id').value.trim()||null;
+    const calvingRaw=el('cattle-calving-number').value,calvingNumber=calvingRaw===''?null:Number(calvingRaw);
+    const status=el('cattle-status').value,dob=el('cattle-dob').value||null;
+    if(!name){el('cattle-error').textContent='Enter the animal name.';return;}
+    if(calvingNumber!==null&&(!Number.isSafeInteger(calvingNumber)||calvingNumber<0||calvingNumber>2147483647)){el('cattle-error').textContent='Calving number must be a whole number from zero to 2,147,483,647.';return;}
     if(!['ACTIVE','INACTIVE'].includes(status)){el('cattle-error').textContent='Choose Active or Inactive status.';return;}
     if(dob&&dob>TODAY){el('cattle-error').textContent='Choose today or an earlier birth date.';return;}
     if(!authSession){el('cattle-error').textContent='Your local session has expired. Sign in again and retry.';return;}
     const id=el('cattle-id').value;
-    const record={id:id||undefined,name,status,dob,notes:el('cattle-notes').value.trim()};
+    const record={id:id||undefined,name,animalId,calvingNumber,status,dob,notes:el('cattle-notes').value.trim()};
     const button=el('cattle-submit');button.disabled=true;button.textContent='Saving…';el('cattle-error').textContent='';
     try{
       const saved=await window.DairyMilkRepository.saveCattle(record);

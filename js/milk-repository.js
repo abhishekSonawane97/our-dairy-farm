@@ -39,7 +39,8 @@
     amount:Number(row.amount_received),notes:row.notes||''
   });
   const cattleFromRow = row => ({
-    id:row.id,name:row.name,status:row.status,dob:row.date_of_birth,notes:row.notes||''
+    id:row.id,name:row.name,animalId:row.animal_id??null,calvingNumber:row.calving_number??null,
+    status:row.status,dob:row.date_of_birth,notes:row.notes||''
   });
   async function list() {
     const pageSize=1000, rows=[];
@@ -103,7 +104,7 @@
     const pageSize=1000,rows=[];
     for(let offset=0;;offset+=pageSize){
       const {data,error}=await client().from('cattle')
-        .select('id,name,status,date_of_birth,notes').order('name',{ascending:true})
+        .select('id,name,animal_id,calving_number,status,date_of_birth,notes').order('name',{ascending:true})
         .range(offset,offset+pageSize-1);
       if(error)throw error;
       rows.push(...(data||[]));
@@ -140,16 +141,17 @@
     }
   }
   async function restoreBackup(backup){
-    const {data,error}=await client().rpc('restore_farm_backup',{p_backup:backup});
+    const {data,error}=await client().rpc('restore_farm_backup_with_cattle',{p_backup:backup});
     if(error)throw error;
     return data;
   }
   async function saveCattle(cattle) {
-    const payload={name:cattle.name,status:cattle.status,date_of_birth:cattle.dob,notes:cattle.notes||null};
+    const payload={name:cattle.name,animal_id:cattle.animalId||null,calving_number:cattle.calvingNumber,
+      status:cattle.status,date_of_birth:cattle.dob,notes:cattle.notes||null};
     const query=cattle.id
       ? client().from('cattle').update(payload).eq('id',cattle.id)
       : client().from('cattle').insert(payload);
-    const {data,error}=await query.select('id,name,status,date_of_birth,notes').single();
+    const {data,error}=await query.select('id,name,animal_id,calving_number,status,date_of_birth,notes').single();
     if(error)throw error;
     return cattleFromRow(data);
   }
