@@ -1,0 +1,58 @@
+name: Deploy Our Dairy Farm to GitHub Pages
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      DAIRY_FARM_BUILD_ENV: production
+      PRODUCTION_SUPABASE_URL: ${{ vars.PRODUCTION_SUPABASE_URL }}
+      PRODUCTION_SUPABASE_PUBLISHABLE_KEY: ${{ vars.PRODUCTION_SUPABASE_PUBLISHABLE_KEY }}
+      PRODUCTION_AUTH_ENABLED: ${{ vars.PRODUCTION_AUTH_ENABLED }}
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Validate production build variables
+        run: |
+          test -n "$PRODUCTION_SUPABASE_URL" || { echo "::error::Set PRODUCTION_SUPABASE_URL in repository variables."; exit 1; }
+          test -n "$PRODUCTION_SUPABASE_PUBLISHABLE_KEY" || { echo "::error::Set PRODUCTION_SUPABASE_PUBLISHABLE_KEY in repository variables."; exit 1; }
+          test "$PRODUCTION_AUTH_ENABLED" = "true" || { echo "::error::PRODUCTION_AUTH_ENABLED must be true after hosted PIN authentication is configured."; exit 1; }
+
+      - name: Build production artifact
+        run: python3 scripts/build-production.py
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

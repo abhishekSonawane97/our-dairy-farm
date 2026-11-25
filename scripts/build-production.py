@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build an allowlisted Cloudflare Pages artifact with explicit production config."""
+"""Build an allowlisted static artifact for one explicit hosted environment."""
 
 from __future__ import annotations
 
@@ -91,11 +91,20 @@ def copy_file(relative: str) -> None:
     shutil.copy2(source, destination)
 
 
-def write_runtime_config(origin: str, project_url: str, publishable_key: str) -> None:
+def explicit_flag(name: str) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if value not in {"", "true", "false"}:
+        raise SystemExit(f"{name} must be exactly 'true' or 'false'.")
+    return value == "true"
+
+
+def write_runtime_config(
+    environment: str, origin: str, project_url: str, publishable_key: str, auth_configured: bool
+) -> None:
     runtime = {
-        "environment": "production",
+        "environment": environment,
         "localDevelopment": False,
-        "productionAuthConfigured": False,
+        "hostedAuthConfigured": auth_configured,
         "projectUrl": project_url,
         "publishableKey": publishable_key,
     }
@@ -125,14 +134,29 @@ def write_runtime_config(origin: str, project_url: str, publishable_key: str) ->
 
 
 def main() -> None:
-    project_url = required_environment("SUPABASE_URL").rstrip("/")
+    environment = required_environment("DAIRY_FARM_BUILD_ENV").lower()
+    if environment not in {"staging", "production"}:
+        raise SystemExit("DAIRY_FARM_BUILD_ENV must be either 'staging' or 'production'.")
+
+    prefix = environment.upper()
+    opposite = "PRODUCTION" if environment == "staging" else "STAGING"
+    opposite_variables = [
+        f"{opposite}_SUPABASE_URL",
+        f"{opposite}_SUPABASE_PUBLISHABLE_KEY",
+        f"{opposite}_AUTH_ENABLED",
+    ]
+    if any(os.environ.get(name, "").strip() for name in opposite_variables):
+        raise SystemExit(f"Refusing a {environment} build while {opposite.lower()} configuration is present.")
+
+    project_url = required_environment(f"{prefix}_SUPABASE_URL").rstrip("/")
     _, origin = production_url(project_url)
-    publishable_key = required_environment("SUPABASE_PUBLISHABLE_KEY")
+    publishable_key = required_environment(f"{prefix}_SUPABASE_PUBLISHABLE_KEY")
     lowered_key = publishable_key.lower()
     if not publishable_key.startswith("sb_publishable_"):
-        raise SystemExit("SUPABASE_PUBLISHABLE_KEY must be a Supabase publishable key.")
+        raise SystemExit(f"{prefix}_SUPABASE_PUBLISHABLE_KEY must be a Supabase publishable key.")
     if "secret" in lowered_key or "service_role" in lowered_key:
         raise SystemExit("Secret/service-role credentials are forbidden in browser configuration.")
+    auth_configured = explicit_flag(f"{prefix}_AUTH_ENABLED")
 
     prepare_output()
     html = (ROOT / "index.html").read_text(encoding="utf-8")
@@ -148,7 +172,7 @@ def main() -> None:
 
     for relative in sorted(ALLOWED_OUTPUT_FILES - {"index.html", "js/supabase-config.js", "_headers"}):
         copy_file(relative)
-    write_runtime_config(origin, project_url, publishable_key)
+    write_runtime_config(environment, origin, project_url, publishable_key, auth_configured)
 
     actual = {
         item.relative_to(OUTPUT).as_posix()
@@ -161,7 +185,8 @@ def main() -> None:
         raise SystemExit(f"Production output allowlist mismatch. Unexpected={sorted(unexpected)} missing={sorted(missing)}")
 
     print(f"Production output created at {OUTPUT}")
-    print(f"Included {len(actual)} allowlisted files; production authentication remains disabled.")
+    state = "enabled by explicit build setting" if auth_configured else "disabled (fail-closed)"
+    print(f"Included {len(actual)} allowlisted files for {environment}; hosted authentication is {state}.")
 
 
 if __name__ == "__main__":

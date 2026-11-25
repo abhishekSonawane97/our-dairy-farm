@@ -5,11 +5,11 @@
   let initializationError = null;
 
   try {
-    if (!config || !['local', 'production'].includes(config.environment)) {
+    if (!config || !['local', 'staging', 'production'].includes(config.environment)) {
       throw new Error('Application environment is not configured. Farm data is unavailable.');
     }
-    if (config.environment === 'production' && config.productionAuthConfigured !== true) {
-      throw new Error('Production authentication is not configured. No farm data was requested.');
+    if (config.environment !== 'local' && config.hostedAuthConfigured !== true) {
+      throw new Error(`${config.environment === 'staging' ? 'Staging' : 'Production'} authentication is not configured. No farm data was requested.`);
     }
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       throw new Error('Supabase JavaScript SDK did not load. Check the network and reload.');
@@ -62,8 +62,8 @@
   async function signInWithPin(pin) {
     if (!client) throw new Error(initializationError || 'Supabase client is not ready.');
     if (!/^\d{6}$/.test(String(pin))) throw new Error('Enter the six-digit farm PIN.');
-    if (config.environment === 'production' && config.productionAuthConfigured !== true) {
-      throw new Error('Production sign-in is not configured yet.');
+    if (config.environment !== 'local' && config.hostedAuthConfigured !== true) {
+      throw new Error(`${config.environment === 'staging' ? 'Staging' : 'Production'} sign-in is not configured yet.`);
     }
     const { data: response, error: invokeError } = await client.functions.invoke('farm-pin-login', {
       body: { pin: String(pin) }

@@ -7,7 +7,7 @@
   window.DairySupabaseConfig = Object.freeze({
     environment: 'local',
     localDevelopment: true,
-    productionAuthConfigured: false,
+    hostedAuthConfigured: false,
     projectUrl: `http://${localApiHost}:55321`,
     publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
     localPinAuthPath: `http://${localApiHost}:8001/__local_auth/pin`

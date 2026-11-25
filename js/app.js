@@ -3,10 +3,14 @@
   const TODAY = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
   const environment = window.DairySupabaseConfig?.environment || 'unconfigured';
   const localDatabase = environment === 'local';
-  const productionAuthUnavailable = environment === 'production' && window.DairySupabaseConfig?.productionAuthConfigured !== true;
+  const hostedEnvironment = environment === 'staging' || environment === 'production';
+  const hostedAuthConfigured = hostedEnvironment && window.DairySupabaseConfig?.hostedAuthConfigured === true;
+  const hostedAuthUnavailable = hostedEnvironment && !hostedAuthConfigured;
   const accessRequiredMessage = environment === 'production'
     ? 'Production sign-in is not configured. Farm data is unavailable in this build.'
-    : 'Sign in to the local farm account before accessing records.';
+    : environment === 'staging'
+      ? 'Staging sign-in is not configured. Farm data is unavailable in this build.'
+      : 'Sign in to the local farm account before accessing records.';
   const milkMath = window.DairyMilkCalculations;
   const money = n => `₹${Number(n || 0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   const litres = n => `${Number(n || 0).toFixed(3)} L`;
@@ -137,45 +141,45 @@
     const status=el('cattle-data-status');status.className=`connection-status ${kind}`;status.textContent=message;
   }
   function reportReadiness(){
-    if(!localDatabase)return {state:'error',message:accessRequiredMessage};
+    if(!localDatabase&&!hostedAuthConfigured)return {state:'error',message:accessRequiredMessage};
     if(!authSession)return {state:'locked',message:'Sign in to load reports from the farm database.'};
     const states=Object.values(reportResources);
     if(states.includes('loading')||states.includes('idle'))return {state:'loading',message:'Loading farm records for reports…'};
     if(states.includes('error'))return {state:'error',message:'Some farm records could not be loaded. Check the connection and retry before printing.'};
     if(states.includes('locked'))return {state:'locked',message:'Sign in to load reports from the farm database.'};
-    return {state:'ready',message:'Reports use the records currently loaded from local Supabase.'};
+    return {state:'ready',message:'Reports use the records currently loaded from the farm database.'};
   }
   function reportDateLabel(value,options={day:'numeric',month:'short',year:'numeric'}){
     return new Intl.DateTimeFormat('en-IN',{...options,timeZone:'Asia/Kolkata'}).format(new Date(`${value}T12:00:00+05:30`));
   }
   function setReportResource(name,state){reportResources[name]=state;}
   async function refreshCattleData(){
-    if(!localDatabase){data.cattle=[];setReportResource('cattle','error');setCattleStatus(accessRequiredMessage,'error');renderCattle();renderReports();return false;}
-    if(!authSession){data.cattle=[];setReportResource('cattle','locked');setCattleStatus('Sign in to the local database to load cattle records.');renderCattle();renderReports();return false;}
+    if(!localDatabase&&!hostedAuthConfigured){data.cattle=[];setReportResource('cattle','error');setCattleStatus(accessRequiredMessage,'error');renderCattle();renderReports();return false;}
+    if(!authSession){data.cattle=[];setReportResource('cattle','locked');setCattleStatus('Sign in to load cattle records.');renderCattle();renderReports();return false;}
     setReportResource('cattle','loading');renderReports();
     setCattleStatus('Loading cattle records…');
     try{
       data.cattle=await window.DairyMilkRepository.listCattle();
       setReportResource('cattle','ready');
-      setCattleStatus(`Loaded ${data.cattle.length} cattle records from local Supabase.`,'success');
-    }catch(error){setReportResource('cattle','error');setCattleStatus(error.message||'Could not load cattle records. Check the local connection and try again.','error');}
+      setCattleStatus(`Loaded ${data.cattle.length} cattle records from the farm database.`,'success');
+    }catch(error){setReportResource('cattle','error');setCattleStatus(error.message||'Could not load cattle records. Check the connection and try again.','error');}
     renderCattle();renderReports();return reportResources.cattle==='ready';
   }
   async function refreshBillingData(){
-    if(!localDatabase){data.cycles=[];data.payments=[];setReportResource('billing','error');setBillingStatus(accessRequiredMessage,'error');render();return false;}
-    if(!authSession){data.cycles=[];data.payments=[];setReportResource('billing','locked');setBillingStatus('Sign in to the local database to load billing data.');render();return false;}
+    if(!localDatabase&&!hostedAuthConfigured){data.cycles=[];data.payments=[];setReportResource('billing','error');setBillingStatus(accessRequiredMessage,'error');render();return false;}
+    if(!authSession){data.cycles=[];data.payments=[];setReportResource('billing','locked');setBillingStatus('Sign in to load billing data.');render();return false;}
     setReportResource('billing','loading');renderReports();
     setBillingStatus('Loading billing cycles and payments…');
     try{
       const [cycles,payments]=await Promise.all([window.DairyMilkRepository.listCycles(),window.DairyMilkRepository.listPayments()]);
       data.cycles=cycles.sort((a,b)=>a.start.localeCompare(b.start));data.payments=payments;
       setReportResource('billing','ready');
-      setBillingStatus(`Loaded ${cycles.length} cycles and ${payments.length} payments from local Supabase.`,'success');
+      setBillingStatus(`Loaded ${cycles.length} cycles and ${payments.length} payments from the farm database.`,'success');
     }catch(error){data.cycles=[];data.payments=[];setReportResource('billing','error');setBillingStatus(error.message||'Could not load billing data.','error');}
     render();return reportResources.billing==='ready';
   }
   async function refreshFarmSettings(){
-    if(!localDatabase){data.farmSettings=null;setReportResource('settings','error');renderReports();return false;}
+    if(!localDatabase&&!hostedAuthConfigured){data.farmSettings=null;setReportResource('settings','error');renderReports();return false;}
     if(!authSession){data.farmSettings=null;setReportResource('settings','locked');renderReports();return false;}
     setReportResource('settings','loading');renderReports();
     try{
@@ -185,7 +189,7 @@
     renderReports();return reportResources.settings==='ready';
   }
   async function refreshMilkRecords() {
-    if (!localDatabase) {
+    if (!localDatabase && !hostedAuthConfigured) {
       data.milkRecords=[];
       data.cycles=[];data.payments=[];
       Object.keys(reportResources).forEach(key=>setReportResource(key,'error'));
@@ -200,9 +204,9 @@
       data.cycles=[];data.payments=[];
       data.cattle=[];data.farmSettings=null;
       Object.keys(reportResources).forEach(key=>setReportResource(key,'locked'));
-      setMilkStatus('Sign in with a local development account to load farm records.');
-      setBillingStatus('Sign in to the local database to load billing data.');
-      data.cattle=[];setCattleStatus('Sign in to the local database to load cattle records.');
+      setMilkStatus('Sign in to load farm records.');
+      setBillingStatus('Sign in to load billing data.');
+      data.cattle=[];setCattleStatus('Sign in to load cattle records.');
       render();
       return;
     }
@@ -368,7 +372,7 @@
     const reportButton=e.target.closest('[data-report-type]');if(reportButton){reportType=reportButton.dataset.reportType;renderReports();}
     if(e.target.closest('#add-cattle'))openCattle();
     if(e.target.closest('#add-payment'))openPayment();
-    if(e.target.closest('#demo-access')){el('access-error').textContent=productionAuthUnavailable?accessRequiredMessage:'';el('access-dialog').showModal();}
+    if(e.target.closest('#demo-access')){el('access-error').textContent=hostedAuthUnavailable?accessRequiredMessage:'';el('access-dialog').showModal();}
     if(e.target.closest('[data-report-print]'))window.print();
   });
   document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('[data-animal-id]')){e.preventDefault();openCattle(e.target.closest('[data-animal-id]').dataset.animalId);}});
@@ -458,7 +462,7 @@
   window.addEventListener('dairy-farm:session-changed',async event=>{
     authSession=event.detail?.session||null;
     await refreshMilkRecords();
-    if(authSession)toast('Connected to the local farm record.');
+    if(authSession)toast(`Connected to the ${environment==='local'?'local ':environment==='staging'?'staging ':''}farm record.`);
   });
   ['report-date','report-cycle','report-month','report-cattle-filter'].forEach(id=>el(id).addEventListener('change',renderReports));
   document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',()=>{if(a.dataset.filter){activeFilter=a.dataset.filter;document.querySelectorAll('.filters .filter-chip').forEach(b=>b.classList.toggle('active',b.dataset.filter===activeFilter));renderRecords();}}));
@@ -470,9 +474,16 @@
   el('hero-date-label').textContent=new Intl.DateTimeFormat('en-IN',{weekday:'long',day:'2-digit',month:'long',year:'numeric',timeZone:'Asia/Kolkata'}).format(new Date(`${TODAY}T12:00:00`)).toUpperCase();
   const todayParts=new Intl.DateTimeFormat('en-IN',{weekday:'long',day:'numeric',month:'long',timeZone:'Asia/Kolkata'}).format(new Date(`${TODAY}T12:00:00`)).split(' ');
   el('today-date-label').innerHTML=`${esc(todayParts[0])}<br><b>${esc(todayParts.slice(1).join(' '))}</b>`;
-  el('environment-ribbon').innerHTML=`<span class="demo-dot"></span> ${esc(localDatabase?'DEVELOPMENT PREVIEW · Milk, billing and cattle data use local Supabase':environment==='production'?'PRODUCTION · SIGN-IN NOT CONFIGURED':'APPLICATION CONFIGURATION REQUIRED')}`;
-  el('environment-footer').textContent=localDatabase?'LOCAL DEVELOPMENT ONLY':environment==='production'?'PRODUCTION · ACCESS LOCKED':'CONFIGURATION REQUIRED';
-  if(localDatabase || (environment === 'production' && window.DairySupabaseConfig?.productionAuthConfigured === true)){
+  const environmentLabel = localDatabase
+    ? 'DEVELOPMENT PREVIEW · Milk, billing and cattle data use local Supabase'
+    : environment === 'staging'
+      ? hostedAuthConfigured ? 'STAGING · AUTHENTICATED TEST ENVIRONMENT' : 'STAGING · SIGN-IN NOT CONFIGURED'
+      : environment === 'production'
+        ? hostedAuthConfigured ? 'PRODUCTION' : 'PRODUCTION · SIGN-IN NOT CONFIGURED'
+        : 'APPLICATION CONFIGURATION REQUIRED';
+  el('environment-ribbon').innerHTML=`<span class="demo-dot"></span> ${esc(environmentLabel)}`;
+  el('environment-footer').textContent=localDatabase?'LOCAL DEVELOPMENT ONLY':environment==='staging'?'STAGING ENVIRONMENT':environment==='production'?'PRODUCTION ENVIRONMENT':'CONFIGURATION REQUIRED';
+  if(localDatabase || hostedAuthConfigured){
     el('access-submit').textContent='Continue';
     el('access-description').textContent=localDatabase
       ? 'Enter the local development PIN to sign in to the isolated Supabase database.'
@@ -486,6 +497,8 @@
   }else{
     const blockedMessage=environment==='production'
       ? 'Production authentication is not configured. Farm records were not requested.'
+      : environment==='staging'
+        ? 'Staging authentication is not configured. Farm records were not requested.'
       : 'Application environment is not configured. Farm records are unavailable.';
     el('access-description').textContent=blockedMessage;
     el('access-submit').disabled=true;
