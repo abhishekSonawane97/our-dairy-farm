@@ -1,16 +1,23 @@
-/* Supabase v2 client plus connection/auth helpers. */
+/* Supabase v2 client for an explicitly configured, authenticated environment. */
 (() => {
   const config = window.DairySupabaseConfig;
   let client = null;
   let initializationError = null;
 
   try {
+    if (!config || !['local', 'production'].includes(config.environment)) {
+      throw new Error('Application environment is not configured. Farm data is unavailable.');
+    }
+    if (config.environment === 'production' && config.productionAuthConfigured !== true) {
+      throw new Error('Production authentication is not configured. No farm data was requested.');
+    }
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       throw new Error('Supabase JavaScript SDK did not load. Check the network and reload.');
     }
-    if (!config?.projectUrl || !config?.publishableKey) {
+    if (!config.projectUrl || !config.publishableKey) {
       throw new Error('Supabase project URL or publishable key is missing.');
     }
+
     client = window.supabase.createClient(config.projectUrl, config.publishableKey, {
       auth: {
         persistSession: true,
@@ -24,6 +31,9 @@
 
   async function testConnection() {
     if (!client) throw new Error(initializationError || 'Supabase client is not ready.');
+    if (config.environment !== 'local') {
+      throw new Error('Connection testing is disabled until production authentication is configured.');
+    }
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10000);
@@ -37,52 +47,48 @@
         signal: controller.signal
       });
       if (!response.ok) {
-        throw new Error(`Supabase responded with HTTP ${response.status}. Check the project URL and publishable key.`);
+        throw new Error(`Supabase responded with HTTP ${response.status}. Check the local project status.`);
       }
       return { status: response.status };
     } catch (error) {
       if (error.name === 'AbortError') throw new Error('Connection test timed out after 10 seconds.');
-      if (error instanceof TypeError) throw new Error('Could not reach Supabase. Check the network and project URL.');
+      if (error instanceof TypeError) throw new Error('Could not reach local Supabase. Check Docker and the local project.');
       throw error;
     } finally {
       window.clearTimeout(timeout);
     }
   }
 
-  async function signInWithLocalPin(pin) {
+  async function signInWithPin(pin) {
     if (!client) throw new Error(initializationError || 'Supabase client is not ready.');
-    if (config?.localDevelopment !== true || !config.localPinAuthPath) {
-      throw new Error('PIN sign-in is available only in the local development environment.');
+    if (!/^\d{6}$/.test(String(pin))) throw new Error('Enter the six-digit farm PIN.');
+    if (config.environment === 'production' && config.productionAuthConfigured !== true) {
+      throw new Error('Production sign-in is not configured yet.');
     }
-    if (!/^\d{6}$/.test(String(pin))) throw new Error('Enter the six-digit local PIN.');
-
-    let response;
-    try {
-      response = await window.fetch(config.localPinAuthPath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ pin: String(pin) })
-      });
-    } catch {
-      throw new Error('Could not reach the local PIN sign-in helper. Start the local app server and try again.');
+    const { data: response, error: invokeError } = await client.functions.invoke('farm-pin-login', {
+      body: { pin: String(pin) }
+    });
+    if (invokeError) {
+      let detail = invokeError.message || 'PIN sign-in failed.';
+      try {
+        const responseBody = invokeError.context instanceof Response
+          ? await invokeError.context.clone().json()
+          : null;
+        if (responseBody?.error) detail = responseBody.error;
+      } catch { /* Keep the SDK error if the function response is not JSON. */ }
+      throw new Error(detail);
     }
-
-    let payload;
-    try { payload = await response.json(); }
-    catch { throw new Error('The local PIN sign-in helper returned an invalid response.'); }
-    if (!response.ok) throw new Error(payload?.error || 'Local PIN sign-in failed. Check the PIN and try again.');
-    if (!payload?.access_token || !payload?.refresh_token) {
-      throw new Error('The local PIN sign-in helper did not return a valid Auth session.');
+    if (!response?.access_token || !response?.refresh_token) {
+      throw new Error('PIN verification did not return a valid Supabase session.');
     }
-
     const { data, error } = await client.auth.setSession({
-      access_token: payload.access_token,
-      refresh_token: payload.refresh_token
+      access_token: response.access_token,
+      refresh_token: response.refresh_token
     });
     if (error) throw error;
     if (data?.user?.app_metadata?.farm_access !== true) {
       await client.auth.signOut();
-      throw new Error('The local account is missing the trusted farm access claim. Re-run local account provisioning.');
+      throw new Error('The signed-in account does not have trusted farm access.');
     }
     return { data, error: null };
   }
@@ -91,9 +97,8 @@
     client,
     initializationError,
     testConnection,
-    signIn: credentials => client.auth.signInWithPassword(credentials),
-    signInWithLocalPin,
-    signOut: () => client.auth.signOut(),
-    getSession: () => client.auth.getSession()
+    signInWithPin,
+    signOut: () => client ? client.auth.signOut() : Promise.resolve({ data: null, error: null }),
+    getSession: () => client ? client.auth.getSession() : Promise.resolve({ data: { session: null }, error: null })
   });
 })();

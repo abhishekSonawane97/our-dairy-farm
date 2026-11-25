@@ -4,6 +4,11 @@
 # working directory name when running `supabase init`.
 project_id = "dairy_farm"
 
+[functions.farm-pin-login]
+# PIN login must accept unauthenticated calls; the Edge Function verifies the PIN
+# before it creates a session. Every other function keeps gateway JWT checks.
+verify_jwt = false
+
 [api]
 enabled = true
 # Port to use for the API URL.

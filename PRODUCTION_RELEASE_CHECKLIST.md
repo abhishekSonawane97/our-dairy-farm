@@ -1,108 +1,132 @@
-# Production release checklist
+# Production Release and Staging Checklist
 
-**Status: blocked for production release.** This checklist records the current project state after the Phase 3.0 release-baseline audit. It does not authorize hosted changes or deployment.
+**Status: not ready for hosted staging or production.** This document records the release path after Phase 3.3. No hosted Supabase project or Cloudflare Pages site has been created, linked, changed, or deployed. The first hosted farm database is intended to start empty.
 
 ## Current architecture
 
-- Mobile-first static single-page application using vanilla HTML, CSS, and JavaScript.
-- Supabase JavaScript SDK v2 loaded by the browser; no frontend framework or build pipeline is currently configured.
-- Five-table PostgreSQL schema with RLS and claim-gated data access.
-- Local Docker Supabase project `dairy_farm`; local app/PIN helper on port 8001.
-- Development seed fixtures are configured in `supabase/config.toml` and are local-only.
-- Cloudflare Pages deployment has not been configured or performed.
+- Static, mobile-first single-page frontend built with vanilla HTML/CSS/JavaScript and Supabase JS v2.
+- Supabase PostgreSQL has five farm tables, RLS, a claim-gated shared farm identity, billing/reset/restore RPCs, and a private PIN attempt limiter.
+- Local sign-in uses a local Edge Function and a local-only provisioned Auth identity. Local PIN/test credentials and fixtures are excluded from the generated production artifact.
+- `scripts/build-production.py` creates an allowlisted Cloudflare Pages artifact in `dist/` from explicitly supplied project URL and publishable key.
+- The production builder hardcodes `productionAuthConfigured: false`; the generated artifact deliberately cannot sign in or query Supabase. A reviewed staging activation mechanism is a blocker before a usable staging Pages build.
+- Local Supabase uses Docker. The source tree has no package-managed frontend build or conventional automated test suite.
 
-## Features implemented and working locally
+## Local workflow status
 
-- Milk records with independent morning/evening sessions, one per date/session, totals, filters, and historical comparisons.
-- Billing cycles, billing calculations, payments/installments, and claim-gated cycle reset.
-- Cattle register with active/inactive status and preserved rows.
-- Daily, billing-cycle, monthly, and cattle reports with browser print/PDF output.
-- Versioned JSON backup and additive, conflict-aware restore RPC.
-- Local PIN helper exchanging the development PIN for the local Supabase Auth test user's session.
+Phase 3.3 was reported browser-verified for shared PIN sign-in, milk sessions and editing, billing/payment entry, cattle edits/status changes, reports, backup, and authenticated restore. Temporary test records were removed and local data counts were reported unchanged. This Phase 4.0 session reran JavaScript syntax checks, Python compile checks, whitespace checks, and the production artifact build; it could not inspect Docker health because access to the Docker socket was denied by the current sandbox.
 
-Production Auth, hosted CRUD, production backup/restore, hosted migrations, and Cloudflare deployment are not verified or enabled.
+## Critical blockers before usable hosted staging
 
-## Critical blockers
+- [ ] Resolve the **local migration ledger discrepancy** through a separately reviewed, non-destructive local reconciliation. `00500` restore objects exist although its ledger entry is absent; the `00600` PIN limiter migration was also applied directly and is absent from the ledger. Do not reset, replay blindly, or mutate the ledger until the live objects and SQL are compared and backed up.
+- [ ] Provision one hosted shared Auth identity and trusted `app_metadata.farm_access = true` using an approved admin-only setup path. No production credential/provisioning workflow is currently in the repository.
+- [ ] Configure hosted Edge Function secrets and exact allowed Pages origin. Keep the service-role credential function-side only.
+- [ ] Deploy and verify `farm-pin-login` on a clean staging Supabase project.
+- [ ] Decide and implement an explicit fail-closed staging build activation mechanism. Today the builder always disables production auth, so do not deploy its artifact for family use.
+- [ ] Configure a separate Cloudflare Pages staging project/environment and verify the artifact actually uses the staging Supabase URL/key.
+- [ ] Verify clean migration application, RLS, Edge Function login, all workflows, headers, mobile access, printing, backup/restore, and empty initial farm setup in staging.
+- [ ] Pin the Supabase CLI version after validating the chosen release version against the migrations.
 
-- [ ] Implement production authentication and session issuance. The local PIN helper is not production auth.
-- [ ] Implement centralized PIN rate limiting and secure PIN storage; define PIN rotation, lost-device recovery, and session invalidation.
-- [ ] Replace host/query-based local-mode detection with explicit build-time environment configuration that cannot activate local auth in production.
-- [ ] Produce an allowlisted deployment artifact that excludes local helpers, local provisioning, and sample fixtures.
-- [ ] Resolve whether payments are immutable: the UI is append-only, while current authenticated database grants allow updates.
-- [ ] Reconcile local migration state before proceeding: CLI/history records `00500` as pending even though its restore objects exist in the local database.
-- [x] Establish the source-controlled release baseline and review its staged contents.
-- [ ] Pin and document the Supabase CLI version used for migration operations.
+## Migration files and safe deployment order
 
-## Production configuration requirements
+The repository contains these migrations in timestamp order:
 
-- [ ] Use the intended hosted Supabase project URL and publishable key per environment. The publishable key is public; never use a secret/service-role key in a browser bundle.
-- [ ] Keep separate local, staging, and production configurations. Ensure staging/preview builds cannot point to production accidentally.
-- [ ] Store any PIN verifier or privileged credentials only in a server-side secret store, such as Supabase Edge Function secrets.
-- [ ] Configure Supabase Auth Site URL, exact redirect allowlist, sign-up policy, email/OTP policy if used, session lifetime, and recovery settings.
-- [ ] Configure production CORS/API behavior as needed and verify HTTPS for the application and auth flow.
+1. `supabase/migrations/20261124000100_core_schema.sql` — five core tables, constraints, indexes, and relationships.
+2. `supabase/migrations/20261124000200_security_and_bootstrap.sql` — grants, RLS, trusted-claim helper, and initial farm initializer.
+3. `supabase/migrations/20261124000300_billing_cycle_reset.sql` — authorized cycle reset.
+4. `supabase/migrations/20261124000400_billing_reset_duplicate_retry.sql` — reset retry correction.
+5. `supabase/migrations/20261124000500_backup_restore.sql` — constrained restore executor and authenticated restore RPC.
+6. `supabase/migrations/20261125000100_pin_login_attempt_limit.sql` — private HMAC-IP attempt store and service-role-only atomic limiter functions.
 
-## Required authentication work
+For a **new, empty staging project**, review all six files in order, then use the CLI dry-run before applying them. The two missing local ledger entries are not evidence that the SQL should be run against the local DB again. The clean hosted staging database has its own empty ledger and should receive the complete committed migration chain once. Never include `supabase/seed.sql` (`--include-seed`) for staging or production.
 
-- [ ] Production PIN verifier in a trusted server-side function; do not embed the PIN or its verifier in frontend JavaScript.
-- [ ] Rate limiting across devices/IPs with privacy-preserving identifiers and bounded lockouts.
-- [ ] Issue a normal Supabase Auth session for the same farm identity on authorized devices.
-- [ ] Assign `app_metadata.farm_access` only through trusted administration; validate it in database RLS.
-- [ ] Define PIN change, lost-device recovery, refresh-token/session revocation, and stale-session handling.
-- [ ] Test invalid PIN, repeated attempts, missing claim, valid claim, expired/revoked sessions, two-device access, and recovery.
+Staging command sequence, after separate authorization and project creation:
 
-## Hosted Supabase migration sequence
+```sh
+# From the repository root. Confirm the displayed project ref is the staging ref.
+supabase login
+supabase link --project-ref <STAGING_PROJECT_REF>
+supabase migration list --linked
+supabase db push --dry-run --include-all --linked
+# Review the dry-run: it must list the six files above and no seed data.
+supabase db push --include-all --linked
+supabase migration list --linked
+```
 
-No hosted project has been linked or changed. After separate approval:
+`--include-all` asks the CLI to include migration files missing from the target history. The migration dry-run is a review step, not proof of SQL correctness; the staging apply must be followed by checks for five tables, constraints, grants, RLS, function ACLs, and absence of anonymous access. Supabase documents `db push --dry-run`, `--include-all`, and history repair separately; repair changes migration tracking only and should be used only after comparing actual schema state ([migration guide](https://supabase.com/docs/guides/deployment/database-migrations), [CLI reference](https://supabase.com/docs/reference/cli/supabase-db-push)).
 
-1. Confirm the target project reference, existing schema, backup, and current migration history.
-2. Review and dry-run migrations in timestamp order:
-   - `20261124000100_core_schema.sql`
-   - `20261124000200_security_and_bootstrap.sql`
-   - `20261124000300_billing_cycle_reset.sql`
-   - `20261124000400_billing_reset_duplicate_retry.sql`
-   - `20261124000500_backup_restore.sql`
-3. Apply to an isolated hosted staging project first; inspect role flags, grants, RLS, function owners, function ACLs, and security-definer search paths.
-4. For a genuinely new farm with no history to import, initialize once with the chosen setup date and verify the initial inclusive ten-day cycle.
-5. For a backup import, restore into the empty migrated schema before initialization. Review restore conflicts and preserve IDs/foreign keys.
-6. Compare source/target row counts, UUIDs, cycle boundaries, payment links, and milk/payment/billing totals.
-7. Request separate production approval before linking or applying anything to the actual production project.
+### Local history investigation plan (not executed here)
 
-Never run `supabase/seed.sql` on a hosted project.
+1. Record the current `supabase migration list --local` output and local row counts.
+2. Create and verify a local database backup before any history change.
+3. Compare `00500` and `00600` SQL against `pg_catalog`, policies, roles, private limiter table, function definitions, grants, and RLS flags in the local database.
+4. Confirm `00500`'s restore effects and `00600`'s limiter effects are complete and match the checked-in files.
+5. If the comparison is exact, propose marking only those two versions as applied with `supabase migration repair --status applied <version> --local`; this updates the ledger and does not replay SQL. Review output, then re-list migrations and verify row counts and objects. Stop if any object differs; do not repair or reapply.
 
-## Cloudflare Pages requirements
+No migration history was changed in this phase. No hosted database was inspected.
 
-- [ ] Create a build/output directory with only `index.html`, `css/`, `js/`, and required assets; do not deploy the repository root.
-- [ ] Generate the public Supabase URL/publishable-key config explicitly from environment-specific build configuration. Cloudflare build variables do not automatically become browser variables.
-- [ ] Configure separate preview/staging and production environments; ensure preview builds cannot use production credentials/project settings.
-- [ ] Add `_headers` rules for security headers and deliberate cache behavior. Avoid long caching for HTML/runtime config; fingerprint static assets before immutable caching.
-- [ ] Confirm relative static asset paths, hash navigation, refresh behavior, HTTPS/custom domain, Android/mobile layout, and browser printing.
-- [ ] Check the deployed artifact contains no local PIN helper, account credentials, seed SQL, local scripts, or backup files.
+## Hosted Supabase staging prerequisites
 
-## Security verification requirements
+Create a **separate clean staging project**, distinct from production, in the selected region. Record its project ref, API URL, publishable key, database password location, and owner contacts in the approved secret manager; do not put credentials in Git. Do not use the actual production project for staging.
 
-- [ ] Anonymous requests cannot read or mutate any of the five farm tables.
-- [ ] Authenticated requests without `app_metadata.farm_access` cannot read or mutate protected rows.
-- [ ] Authenticated requests with the trusted claim have only the intended grants and policy access.
-- [ ] `initialize_farm()` remains unavailable to anon/authenticated roles; reset/restore RPC checks and execute grants are verified.
-- [ ] No secret/service-role key appears in source maps, browser bundles, Pages variables exposed to the client, or Git history.
-- [ ] Inspect production Auth configuration, redirect allowlist, session/revocation behavior, CORS, HTTPS, and response headers.
-- [ ] Verify payment mutability decision and restore authorization before release.
+Before enabling access:
 
-## Data migration considerations
+- Disable public sign-ups and confirm the shared farm Auth identity is the only intended identity.
+- Provision that user through a trusted Admin API/setup procedure; set trusted `app_metadata.farm_access = true`, confirm email if required, and use a randomly generated Auth password.
+- Keep the shared PIN out of code and Pages variables. Generate a keyed HMAC verifier plus independent PIN and rate-limit peppers for staging, and store only the resulting values in Edge Function secrets.
+- Set function secrets `FARM_PIN_HASH`, `FARM_PIN_PEPPER`, `FARM_PIN_RATE_PEPPER`, `FARM_AUTH_EMAIL`, `FARM_AUTH_PASSWORD`, and `FARM_PIN_ALLOWED_ORIGINS` to the **staging** values. Do not set `FARM_PIN_ALLOW_LOCAL_ORIGINS` in hosted environments. Supabase injects project runtime variables; the function currently expects legacy `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, which must be confirmed available for the selected project/runtime before deployment. Keep all admin credentials in Edge Function secrets/runtime only.
+- Ensure `farm-pin-login` is deployed with JWT verification disabled at the gateway (`--no-verify-jwt`) because a user must call it before a JWT exists; the function itself verifies PIN, applies the private limiter, and restricts CORS to the exact Pages origin.
+- Verify the `private` schema is not in the Data API exposed schemas; verify no anon/authenticated grants on limiter storage/functions and no secret key in the browser.
 
-- Current local database contains development fixtures and local test activity; treat it as non-production until each row is confirmed as real farm history.
-- Generate the backup while writes are paused because the current client reads tables through separate paginated requests.
-- Preserve UUIDs, timestamps, payment-to-cycle foreign keys, cycle boundaries, and nullable values.
-- Choose either `initialize_farm()` for an empty new farm or backup restore for existing history. Do not initialize before restoring a full backup.
-- Confirm migration/restore counts and financial aggregates before family access is enabled.
-- Keep an untouched source backup and record the restore summary for rollback/reconciliation.
+Function deployment template (only after staging project approval/configuration):
 
-## Local verification notes for this baseline
+```sh
+supabase functions deploy farm-pin-login --project-ref <STAGING_PROJECT_REF> --no-verify-jwt
+supabase secrets set --project-ref <STAGING_PROJECT_REF> --env-file <OWNER_ONLY_STAGING_EDGE_SECRETS_FILE>
+```
 
-- Local Supabase database, REST, Auth, and Kong containers were running and healthy during the release-baseline review.
-- The local app returned HTTP 200 at `http://127.0.0.1:8001/`.
-- The authenticated browser displayed 8 milk records, 4 cycles, 6 payments, and 1 cattle record; overview totals and report preview rendered.
-- Browser backup creation succeeded and reported 20 rows across the five data groups.
-- Local CLI migration history records `00100`–`00400` as applied and `00500` as pending, while `restore_farm_backup(jsonb)`, its helper, and the executor role exist in the database. Restore execution was not tested.
-- The installed Supabase CLI is v2.2.1 and reports v3.3.0 as available; the repository does not pin a CLI version.
-- No farm writes, restores, or deletions were performed in this verification. Milk form inspection opened an existing record for editing and was canceled without saving.
+Create the secrets file outside the repository with owner-only permissions; do not pass secret values on command lines or print them. Confirm the environment file uses the Edge Function variable names above and only the staging origin. Supabase supports function secrets through the Dashboard or `supabase secrets set --env-file` ([Edge Function secrets](https://supabase.com/docs/guides/functions/secrets), [function authentication configuration](https://supabase.com/docs/guides/functions/auth)).
+
+After migrations and auth/function setup, initialize the empty farm exactly once using the approved trusted operator flow with a chosen setup date:
+
+```sql
+select public.initialize_farm(date '<CHOSEN_SETUP_DATE>');
+```
+
+Verify one `farm_settings` row and one inclusive ten-day initial `billing_cycles` row. Do not restore local seed data, sample data, test rows, or backups. The family enters real records after release.
+
+## Cloudflare Pages staging prerequisites
+
+Create a separate Pages project connected to the reviewed Git branch. Do not deploy the repository root as static output. Use the Python build command and output directory below, subject to verifying the Pages build image has a compatible Python 3 runtime:
+
+- Build command: `python3 scripts/build-production.py`
+- Build output directory: `dist`
+- Build-time public variables: `SUPABASE_URL` (staging project origin) and `SUPABASE_PUBLISHABLE_KEY` (staging publishable key).
+- Build-time auth activation: currently unavailable by design; add only after a reviewed staging-only opt-in is implemented and hosted auth is ready. Do not set production to enabled by hostname, query parameter, or a production key being present.
+- No service-role, secret key, shared Auth password, PIN, PIN verifier, or pepper in Cloudflare Pages variables or artifact.
+- Configure staging Pages HTTPS URL as the exact `FARM_PIN_ALLOWED_ORIGINS` origin, and ensure Supabase Auth URL/site settings match the deployed URL as required.
+- Configure and verify `_headers` CSP/connect-src, cache behavior, static asset paths, direct page refresh, mobile layout, and browser printing.
+- Inspect the generated `dist/` contents before deployment; confirm no `js/local-auth.js`, test credentials, seed data, local Supabase config, provisioning scripts, backups, source migrations, or secrets.
+
+The current build can be exercised without network access using a reserved `.invalid` URL and fake publishable value. Its output is deliberately auth-disabled and is **not deployable as a working farm application**.
+
+## Initial data and post-deployment verification
+
+The intended first hosted farm starts empty. Do not move any local test data or backup. After the migrations, trusted Auth identity, Edge Function secrets, and Pages staging build are ready, initialize only farm settings and the first cycle. Verify:
+
+- Exactly five farm tables and expected indexes/constraints exist; RLS is enabled/forced as required.
+- Anonymous requests cannot read or write any farm table; authenticated without `farm_access` is denied; the shared claim can access only intended operations.
+- `initialize_farm` is not callable by anon/authenticated; cycle reset and restore remain claim-gated; limiter functions are service-role-only.
+- Correct PIN returns a genuine Supabase Auth session; wrong PIN and repeated attempts are denied; refresh persists sign-in.
+- Milk, billing/payments, cattle, reports/printing, backup/restore, refresh, and mobile layouts work end-to-end against staging.
+- No production secrets or auth tokens appear in Pages artifact, URLs, console, or logs.
+- Database starts with one settings row, one cycle, and zero milk, payment, and cattle rows; totals remain zero until real records are entered.
+
+## Actions requiring separate approval
+
+- Creating the separate hosted staging Supabase project.
+- Logging into/linking the CLI to hosted staging and applying the six migrations.
+- Creating the shared Auth identity, storing its credentials, configuring Edge Function secrets, and deploying the function.
+- Any migration ledger repair to the existing local database.
+- Implementing/activating the staging production build configuration.
+- Creating/configuring a Cloudflare Pages staging project and deploying the artifact.
+- Moving from staging to actual production, including the production Supabase project, domain, secrets, and deployment.
